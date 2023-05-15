@@ -1,5 +1,7 @@
 db.sqlite3
-requirements.txt
-chatapp/__pycache__/
-chatapp/migrations/
-mychatapp/__pycache__/
+*.pyc
+*/*.pyc
+*/*/*.pyc
+.DS_Store
+*/.DS_Store
+*/*/.DS_Store
