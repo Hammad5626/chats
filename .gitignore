@@ -1,0 +1,5 @@
+db.sqlite3
+requirements.txt
+chatapp/__pycache__/
+chatapp/migrations/
+mychatapp/__pycache__/
