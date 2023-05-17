@@ -13,11 +13,56 @@
                 <textarea class="form-control" id="log" rows="12"></textarea><br>
                 <h5 class="col-md-8 fs-4">Enter your chats here</h5>
                 <input class="form-control" id="chatmssg" type="text" size="100" placeholder="Your message goes here..."><br>
+                <input class="form-control" id="mediaUpload" type="file"><br>
                 <input class="btn btn-primary btn-lg" id="submit" type="button" value="Send">
             </div>
         </div>
     </div>
     {{ room_name|json_script:"roomname" }}
-    <scrip src="chatroom.js"></script>
+    <script>
+        const roomName = JSON.parse(document.getElementById('roomname').textContent);
+        const chatSocket = new WebSocket(
+            `ws://${window.location.host}/ws/chat/${roomName}/`
+        );
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.media) {
+                const mediaElement = document.createElement('img');
+                mediaElement.src = data.media;
+                document.querySelector('#log').appendChild(mediaElement);
+            } else {
+                document.querySelector('#log').value += `${data.message}\n`;
+            }
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('Oops! Chat closed.');
+        };
+
+        document.querySelector('#chatmssg').focus();
+
+        document.querySelector('#submit').onclick = function(e) {
+            const messageDom = document.querySelector('#chatmssg');
+            const message = messageDom.value;
+            chatSocket.send(JSON.stringify({
+                'message': message
+            }));
+            messageDom.value = '';
+        };
+
+        document.querySelector('#mediaUpload').onchange = function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const dataURL = event.target.result;
+                chatSocket.send(JSON.stringify({
+                    'message': 'Media',
+                    'media': dataURL
+                }));
+            };
+            reader.readAsDataURL(file);
+        };
+    </script>
 </body>
 </html>

@@ -17,6 +17,12 @@
           </div>
         </div>
     </div>
-    <script src="index.js"></script>
+    <script>
+      document.querySelector('#roomname').focus();
+        document.querySelector('#submit').onclick = function(e) {
+            var myRoom = document.querySelector('#roomname').value;
+            window.location.pathname = '/chats/' + myRoom + '/';
+        };
+    </script>
 </body>
 </html>
