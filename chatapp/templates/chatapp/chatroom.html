@@ -7,13 +7,45 @@
           rel="stylesheet" 
           integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" 
           crossorigin="anonymous">
+    <style>
+        #log {
+            background-color: #f8f9fa;
+            border: 1px solid #ced4da;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            border: 1px solid #6c757d;
+            border-radius: 5px;
+            padding: 5px 10px;
+            margin-bottom: 5px;
+            background-color: #A0D8B3;
+        }
+
+        .message img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .has-image {
+            background-color: #FCFFB2;
+        }
+
+        #typingIndicator {
+            display: none;
+            color: #6c757d;
+            font-style: italic;
+        }
+    </style>
 </head>
 <body>
     <div class="p-5 mb-4 bg-light rounded-3">
         <div class="container-fluid py-5">
             <div class="container">
                 <h5 class="display-5 fw-bold">Chats Log</h5>
-                <textarea class="form-control" id="log" rows="12"></textarea><br>
+                <div id="log"></div><br>
+                <span id="typingIndicator">Typing...</span>
                 <h5 class="col-md-8 fs-4">Enter your chats here</h5>
                 <input class="form-control" id="chatmssg" type="text" size="100" placeholder="Your message goes here..."><br>
                 <input class="form-control" id="mediaUpload" type="file"><br>
@@ -24,48 +56,102 @@
     {{ room_name|json_script:"roomname" }}
     <script>
         const roomName = JSON.parse(document.getElementById('roomname').textContent);
-        const chatSocket = new WebSocket(
-            `ws://${window.location.host}/ws/chat/${roomName}/`
-        );
+    const chatSocket = new WebSocket(
+        `ws://${window.location.host}/ws/chat/${roomName}/`
+    );
 
-        chatSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            if (data.media) {
-                const mediaElement = document.createElement('img');
-                mediaElement.src = data.media;
-                document.querySelector('#log').appendChild(mediaElement);
-            } else {
-                document.querySelector('#log').value += `${data.message}\n`;
-            }
-        };
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        const messageElement = document.createElement('div');
+        messageElement.className = 'message';
 
-        chatSocket.onclose = function(e) {
-            console.error('Oops! Chat closed.');
-        };
+        if (data.media) {
+            const mediaElement = document.createElement('img');
+            mediaElement.onload = function() {
+                URL.revokeObjectURL(mediaElement.src);
+            };
+            mediaElement.src = URL.createObjectURL(base64ToBlob(data.media));
+            messageElement.appendChild(mediaElement);
+            messageElement.classList.add('has-image');
+        }
 
-        document.querySelector('#chatmssg').focus();
+        if (data.message) {
+            const textElement = document.createElement('p');
+            textElement.textContent = data.message;
+            messageElement.appendChild(textElement);
+        }
 
-        document.querySelector('#submit').onclick = function(e) {
-            const messageDom = document.querySelector('#chatmssg');
-            const message = messageDom.value;
-            chatSocket.send(JSON.stringify({
-                'message': message
-            }));
-            messageDom.value = '';
-        };
+        document.querySelector('#log').appendChild(messageElement);
+    };
 
-        document.querySelector('#mediaUpload').onchange = function(e) {
-            const file = e.target.files[0];
+    chatSocket.onclose = function(e) {
+        console.error('Oops! Chat closed.');
+    };
+
+    document.querySelector('#chatmssg').focus();
+
+    document.querySelector('#submit').onclick = function(e) {
+        sendMessage();
+    };
+
+    document.querySelector('#chatmssg').addEventListener('keydown', function(e) {
+        if (e.keyCode === 13) {
+            e.preventDefault();
+            sendMessage();
+            return false;
+        }
+    });
+
+    let typingTimeout;
+    const typingIndicator = document.querySelector('#typingIndicator');
+    document.querySelector('#chatmssg').addEventListener('keyup', function(e) {
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(function() {
+            typingIndicator.style.display = 'none';
+        }, 2000);
+
+        typingIndicator.style.display = 'inline';
+    });
+
+    function sendMessage() {
+        const messageDom = document.querySelector('#chatmssg');
+        const message = messageDom.value;
+        const fileInput = document.querySelector('#mediaUpload');
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
             const reader = new FileReader();
             reader.onload = function(event) {
                 const dataURL = event.target.result;
+                const base64Data = dataURL.split(',')[1];
                 chatSocket.send(JSON.stringify({
-                    'message': 'Media',
-                    'media': dataURL
+                    'message': message,
+                    'media': base64Data
                 }));
             };
             reader.readAsDataURL(file);
-        };
+        } else {
+            chatSocket.send(JSON.stringify({
+                'message': message
+            }));
+        }
+        messageDom.value = '';
+        fileInput.value = '';
+        clearTimeout(typingTimeout);
+        typingIndicator.style.display = 'none';
+    }
+
+    function base64ToBlob(base64Data) {
+        const byteCharacters = atob(base64Data);
+        const byteArrays = [];
+
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteArrays.push(byteCharacters.charCodeAt(i));
+        }
+
+        const byteArray = new Uint8Array(byteArrays);
+        return new Blob([byteArray]);
+    }
+
     </script>
 </body>
 </html>
